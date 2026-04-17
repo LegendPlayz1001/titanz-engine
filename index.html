@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TITAN SURVIVAL ENGINE FINAL</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body{
+  margin:0;
+  font-family: monospace;
+  background:#050505;
+  color:#d6d6d6;
+  display:flex;
+  justify-content:center;
+}
+
+.container{width:100%;max-width:540px;padding:20px;padding-bottom:50px;}
+
+.card{
+  background:#0f0f0f;
+  border:1px solid #2a0a0a;
+  padding:16px;
+  margin:10px 0;
+  border-radius:10px;
+}
+
+button{
+  width:100%;
+  padding:12px;
+  margin-top:10px;
+  background:transparent;
+  border:1px solid #ff2e2e;
+  color:#ff2e2e;
+  cursor:pointer;
+}
+
+button:hover{background:#ff2e2e;color:#fff;}
+
+input,select{
+  width:100%;
+  padding:10px;
+  margin-top:6px;
+  background:black;
+  color:#ff2e2e;
+  border:1px solid #333;
+}
+
+.row{
+  padding:6px;
+  border-left:3px solid #ff2e2e;
+  background:#080808;
+  margin:6px 0;
+}
+
+#report{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:black;
+  color:#ff2e2e;
+  padding:20px;
+  overflow:auto;
+  z-index:9999;
+}
+
+#introScreen{
+  position:fixed;
+  inset:0;
+  background:black;
+  color:#ff2e2e;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  z-index:99999;
+  padding:20px;
+  text-align:center;
+}
+
+#introText{font-size:18px;min-height:120px;}
+#introInput{width:100%;margin-top:10px;}
+
+/* Custom Reset Modal */
+#resetModal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.95);
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  z-index:99999;
+  padding:20px;
+  text-align:center;
+}
+
+.warning-text {
+  color: #ff2e2e;
+  margin-bottom: 20px;
+  font-size: 16px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="introScreen">
+  <div id="introText"></div>
+  <div id="introInput"></div>
+</div>
+
+<div id="resetModal">
+  <div class="card" style="border-color:#ff2e2e; max-width: 400px; width: 100%;">
+    <h2 style="color:#ff2e2e; margin-top:0;">SYSTEM PURGE</h2>
+    <div class="warning-text">
+      WARNING: This action is irreversible.<br><br>
+      All running logs, XP, and Titan progress will be permanently lost.
+    </div>
+    <button onclick="confirmReset()">CONFIRM PURGE</button>
+    <button onclick="cancelReset()" style="border-color:#555; color:#aaa;">CANCEL</button>
+  </div>
+</div>
+
+<div class="container">
+
+<h2 style="color:#ff2e2e;">TITAN SURVIVAL ENGINE</h2>
+
+<div class="card">
+XP: <span id="xp">0</span>
+</div>
+
+<div class="card">
+<div class="row">PLAYER: <span id="player"></span> km</div>
+<div class="row">TITAN: <span id="titan"></span> km</div>
+<div class="row">STATUS: <span id="status"></span></div>
+</div>
+
+<div class="card">
+<b>THIS WEEK STATS</b>
+<div class="row">Weekly KM: <span id="wkm">0</span></div>
+<div class="row">Runs: <span id="wruns">0</span></div>
+<div class="row">Avg Pace: <span id="wpace">0</span></div>
+</div>
+
+<div class="card">
+<b>TITAN DISTANCE GAP</b>
+<div class="row">Gap: <span id="gap">0</span> km</div>
+</div>
+
+<div class="card">
+
+<div class="row">📅 DATE</div>
+<input type="date" id="date">
+
+<div class="row">📍 KM</div>
+<select id="km"></select>
+
+<div class="row">⏱ MIN</div>
+<select id="min"></select>
+
+<div class="row">⏱ SEC</div>
+<select id="sec"></select>
+
+<div class="row" id="coach"></div>
+
+<button onclick="logRun()">LOG RUN</button>
+<button onclick="openReport()">WEEKLY REPORT</button>
+<button onclick="resetGame()">RESET</button>
+
+</div>
+
+<canvas id="chart"></canvas>
+
+</div>
+
+<div id="report"></div>
+
+<script>
+
+/* ================= STATE ================= */
+let runs = JSON.parse(localStorage.getItem("runs")||"[]");
+let xp = +localStorage.getItem("xp")||0;
+let player = +localStorage.getItem("player")||0;
+let titan = +localStorage.getItem("titan")||5;
+
+let introDone = localStorage.getItem("introDone")==="1";
+let weeklyKm = +localStorage.getItem("weeklyKm")||50;
+let avgPace = +localStorage.getItem("avgPace")||5;
+let startDate = localStorage.getItem("startDate")||"";
+let lastCutsceneWeek = +localStorage.getItem("lastCutsceneWeek")||0;
+
+const d=id=>document.getElementById(id);
+let chart;
+
+/* ================= SAVE ================= */
+function save(){
+  localStorage.setItem("runs",JSON.stringify(runs));
+  localStorage.setItem("xp",xp);
+  localStorage.setItem("player",player);
+  localStorage.setItem("titan",titan);
+  localStorage.setItem("introDone",introDone?"1":"0");
+  localStorage.setItem("weeklyKm",weeklyKm);
+  localStorage.setItem("avgPace",avgPace);
+  localStorage.setItem("startDate",startDate);
+  localStorage.setItem("lastCutsceneWeek", lastCutsceneWeek);
+}
+
+/* ================= BOOT ================= */
+window.onload=()=>{
+  init();
+  if(!introDone) startIntro();
+  else { d("introScreen").style.display="none"; update(); }
+};
+
+/* ================= INIT ================= */
+function init(){
+  d("km").innerHTML="";
+  d("min").innerHTML="";
+  d("sec").innerHTML="";
+
+  for(let i=1;i<=30;i++) d("km").innerHTML+=`<option>${i}</option>`;
+  for(let i=0;i<60;i++){
+    d("min").innerHTML+=`<option>${i}</option>`;
+    d("sec").innerHTML+=`<option>${i}</option>`;
+  }
+
+  d("date").valueAsDate=new Date();
+}
+
+/* ================= INTRO ================= */
+function typeIntro(text,cb){
+  let i=0;
+  d("introText").innerHTML="";
+  let t=setInterval(()=>{
+    d("introText").innerHTML+=text[i++];
+    if(i>=text.length){clearInterval(t);cb&&cb();}
+  },25);
+}
+
+function askIntro(ph,cb){
+  d("introInput").innerHTML="";
+  let input=document.createElement("input");
+  input.placeholder=ph;
+  input.style="width:80%;padding:10px;background:black;color:#ff2e2e;border:1px solid #ff2e2e;";
+  input.onkeydown=e=>{ if(e.key==="Enter") cb(input.value); };
+  d("introInput").appendChild(input);
+  input.focus();
+}
+
+function startIntro(){
+  typeIntro("Jake: You're awake... last runners remain.",()=>{
+    setTimeout(()=>{
+      typeIntro("Jake: Giants track distance.",()=>{
+        setTimeout(()=>{
+          askIntro("weekly km target (e.g. 20)",(v)=>{
+            weeklyKm=+v||20;
+            askIntro("target pace (min/km)",(v2)=>{
+              avgPace=+v2||5;
+              askIntro("start date (leave blank for today)",(v3)=>{
+                startDate=v3||new Date().toISOString().split("T")[0];
+                introDone=true;
+                save();
+                d("introScreen").style.display="none";
+                update();
+              });
+            });
+          });
+        },700);
+      });
+    },700);
+  });
+}
+
+/* ================= CUTSCENE ================= */
+function cutscene(text){
+  let el=document.createElement("div");
+  el.style=`
+    position:fixed; inset:0; background:black; color:#ff2e2e;
+    display:flex; justify-content:center; align-items:center;
+    font-size:24px; z-index:999999; text-align:center;
+    flex-direction: column; white-space: pre-wrap;
+  `;
+  el.innerHTML=text;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 4000);
+}
+
+/* ================= RUN ================= */
+function logRun(){
+  let k=+d("km").value;
+  let m=+d("min").value;
+  let s=+d("sec").value;
+  let date=d("date").value;
+
+  let time=m+(s/60);
+  let pace=time/k;
+
+  runs.push({date,km:k,time,pace});
+
+  player+=k;
+
+  let titanSpeed = Math.min(0.90, 0.6 + (player / 1000));
+  titan += k * titanSpeed;
+
+  xp+=k*10;
+
+  save();
+  update();
+}
+
+/* ================= STATUS ================= */
+function status(){
+  let g=player-titan;
+  if(g>=10) return "SAFE";
+  if(g>=4) return "WARNING";
+  return "DANGER";
+}
+
+/* ================= WEEK FIXED ONLY ================= */
+function getWeekNumber(dateStr){
+  if(!startDate) return 1;
+
+  let start = new Date(startDate);
+  let cur = new Date(dateStr);
+
+  start.setHours(0,0,0,0);
+  cur.setHours(0,0,0,0);
+
+  let diff = Math.floor((cur - start) / (1000*60*60*24));
+  return Math.floor(diff / 7) + 1;
+}
+
+function getWeekData(){
+  let currentWeek = getWeekNumber(new Date().toISOString().split("T")[0]);
+
+  let wRuns = runs.filter(r => getWeekNumber(r.date) === currentWeek);
+
+  let km = wRuns.reduce((a,b)=>a+b.km,0);
+  let pace = wRuns.length ? wRuns.reduce((a,b)=>a+b.pace,0)/wRuns.length : 0;
+
+  return {km,runs:wRuns.length,pace};
+}
+
+/* ================= COACH ================= */
+function coach(){
+  if(!runs.length) return "Start your first run.";
+
+  let total=runs.reduce((a,b)=>a+b.km,0);
+  let avg=runs.reduce((a,b)=>a+b.pace,0)/runs.length;
+  let progress=total/weeklyKm;
+  let msg="";
+
+  if(progress<0.3) msg="BASE BUILD";
+  else if(progress<0.7) msg="BUILD PHASE";
+  else msg="PEAK PHASE";
+
+  if(total>=weeklyKm && total<weeklyKm*1.3)
+    msg="⚠ WEEK COMPLETE - avoid overload";
+
+  if(total>=weeklyKm*1.3)
+    msg="⚠ OVERTRAINING RISK";
+
+  if(avg<5) msg+=" | Fast pace trend";
+
+  return msg;
+}
+
+/* ================= UPDATE ================= */
+function update(){
+  d("xp").innerText=xp;
+  d("player").innerText=player.toFixed(1);
+  d("titan").innerText=titan.toFixed(1);
+  d("status").innerText=status();
+
+  let w=getWeekData();
+
+  d("wkm").innerText=w.km.toFixed(1);
+  d("wruns").innerText=w.runs;
+  d("wpace").innerText=w.pace.toFixed(2);
+
+  d("gap").innerText=(titan-player).toFixed(1);
+
+  d("coach").innerText=coach();
+
+  let currentWeek = getWeekNumber(new Date().toISOString().split("T")[0]);
+  if (w.km >= weeklyKm && lastCutsceneWeek !== currentWeek) {
+      lastCutsceneWeek = currentWeek;
+      save();
+      cutscene("✔ WEEKLY GOAL REACHED\n\nYOU SURVIVED");
+  }
+
+  draw();
+}
+
+/* ================= CHART ================= */
+function draw(){
+  if(chart) chart.destroy();
+  chart=new Chart(d("chart"),{
+    type:"line",
+    data:{
+      labels:runs.map(r=>r.date),
+      datasets:[{data:runs.map(r=>r.km),borderColor:"#ff2e2e"}]
+    },
+    options:{plugins:{legend:{display:false}}}
+  });
+}
+
+/* ================= RESET ================= */
+function resetGame(){
+  d("resetModal").style.display="flex";
+}
+function cancelReset(){
+  d("resetModal").style.display="none";
+}
+function confirmReset(){
+  localStorage.clear();
+  location.reload();
+}
+
+</script>
+
+</body>
+</html>
