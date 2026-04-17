@@ -34,6 +34,7 @@ button{
   border:1px solid #ff2e2e;
   color:#ff2e2e;
   cursor:pointer;
+  font-family: monospace;
 }
 
 button:hover{background:#ff2e2e;color:#fff;}
@@ -45,6 +46,7 @@ input,select{
   background:black;
   color:#ff2e2e;
   border:1px solid #333;
+  font-family: monospace;
 }
 
 .row{
@@ -163,9 +165,10 @@ XP: <span id="xp">0</span>
 <div class="row">⏱ SEC</div>
 <select id="sec"></select>
 
+<button onclick="logRun()" style="background:#ff2e2e; color:white; font-weight:bold; border:none; margin-top:20px;">SUBMIT RUN DATA</button>
+
 <div class="row" id="coach"></div>
 
-<button onclick="logRun()">LOG RUN</button>
 <button onclick="openReport()">WEEKLY REPORT</button>
 <button onclick="resetGame()">RESET</button>
 
@@ -239,13 +242,23 @@ function typeIntro(text,cb){
   },25);
 }
 
+// UPDATED ASKINTRO WITH "ENTER" BUTTON
 function askIntro(ph,cb){
   d("introInput").innerHTML="";
   let input=document.createElement("input");
   input.placeholder=ph;
-  input.style="width:80%;padding:10px;background:black;color:#ff2e2e;border:1px solid #ff2e2e;";
+  input.type="number";
+  input.style="width:80%;padding:12px;background:black;color:#ff2e2e;border:1px solid #ff2e2e;margin-bottom:10px;text-align:center;";
+  
+  let btn=document.createElement("button");
+  btn.innerText="CONFIRM SYSTEM DATA";
+  btn.style="width:85%;padding:12px;background:#ff2e2e;color:white;border:none;font-weight:bold;text-transform:uppercase;";
+  
   input.onkeydown=e=>{ if(e.key==="Enter") cb(input.value); };
+  btn.onclick=()=>cb(input.value);
+  
   d("introInput").appendChild(input);
+  d("introInput").appendChild(btn);
   input.focus();
 }
 
